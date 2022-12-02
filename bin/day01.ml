@@ -1,11 +1,4 @@
-#use "topfind";;
-#thread;;
-#camlp4o;;
-#require "core.top";;
-#require "core.syntax";;
-#require "str"
-
-open Core
+open Base
 
 let read_whole_file filename =
   let ch = open_in filename in
@@ -28,3 +21,6 @@ let part1 : int = total_calories |> List.fold_left ~f:max ~init:0
 let part2 : int =
   List.take (total_calories |> List.sort ~compare |> List.rev) 3
   |> List.fold_left ~f:( + ) ~init:0
+
+let () = print_endline (string_of_int part1)
+let () = print_endline (string_of_int part2)
