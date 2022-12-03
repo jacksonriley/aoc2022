@@ -61,13 +61,11 @@ let game2_score ((their_throw, _) as game : game2) : int =
   let our_throw = calculate_our_throw game in
   game1_score (their_throw, our_throw)
 
-let calculate_part maker scorer input = 
-  List.map ~f:maker input
-  |> List.map ~f:scorer
+let calculate_part maker scorer input =
+  List.map ~f:maker input |> List.map ~f:scorer
   |> List.fold_left ~f:( + ) ~init:0
 
 let part1 : int = calculate_part make_game1 game1_score input
 let part2 : int = calculate_part make_game2 game2_score input
-
 let () = Stdio.print_endline ("Part 1: " ^ Int.to_string part1)
 let () = Stdio.print_endline ("Part 2: " ^ Int.to_string part2)
