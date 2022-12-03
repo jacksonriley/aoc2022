@@ -1,14 +1,12 @@
 open Base
 open Aoc2022.Lib
-open List
-open String
 
 type throw = Rock | Paper | Scissors
 type aim = Win | Lose | Draw
 type game1 = throw * throw
 type game2 = throw * aim
 
-let input : string list = read_whole_file "input/02" |> String.split ~on:'\n'
+let input : string list = read_input_from_stdin |> String.split ~on:'\n'
 
 let make_throw (c : char) : throw =
   match c with
@@ -65,7 +63,11 @@ let calculate_part maker scorer input =
   List.map ~f:maker input |> List.map ~f:scorer
   |> List.fold_left ~f:( + ) ~init:0
 
-let part1 : int = calculate_part make_game1 game1_score input
-let part2 : int = calculate_part make_game2 game2_score input
-let () = Stdio.print_endline ("Part 1: " ^ Int.to_string part1)
-let () = Stdio.print_endline ("Part 2: " ^ Int.to_string part2)
+let part1 = calculate_part make_game1 game1_score
+let part2 = calculate_part make_game2 game2_score
+
+let () =
+  input |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline
+
+let () =
+  input |> part2 |> Int.to_string |> ( ^ ) "Part 2: " |> Stdio.print_endline
