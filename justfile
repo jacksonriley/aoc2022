@@ -26,3 +26,16 @@ test DAY:
 # Run all tests
 test-all:
     dune runtest
+
+# Set up boilerplate for a new day (still need to add to bin/dune :( )
+init DAY:
+    #!/usr/bin/env sh
+    zp=$(printf %02d {{DAY}})
+    zp_day=day${zp}
+    touch bin/${zp_day}.ml
+    touch input/${zp}
+    mkdir -p test/${zp_day}.t
+    touch test/${zp_day}.t/run.t
+    touch test/${zp_day}.t/test
+    echo "  \$ ${zp_day} < test" > test/${zp_day}.t/run.t
+    code bin/${zp_day}.ml
