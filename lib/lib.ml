@@ -1,4 +1,4 @@
-  let read_input_from_stdin = 
+let read_input_from_stdin =
   let ch = stdin in
   let s = really_input_string ch (in_channel_length ch) in
   close_in ch;
