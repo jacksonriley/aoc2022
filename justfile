@@ -27,7 +27,7 @@ test DAY:
 test-all:
     dune runtest
 
-# Set up boilerplate for a new day (still need to add to bin/dune :( )
+# Set up boilerplate for a new day (still need to add to bin/dune and test/dune :( )
 init DAY:
     #!/usr/bin/env sh
     zp=$(printf %02d {{DAY}})
