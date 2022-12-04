@@ -7,12 +7,12 @@ type pair = range * range
 let parse_range (s : string) : range =
   match String.split ~on:'-' s with
   | [ l; h ] -> (Int.of_string l, Int.of_string h)
-  | other -> failwith ""
+  | other -> failwith @@ "Expected range, got " ^ String.concat ~sep:"  " other
 
 let parse_pair (s : string) : pair =
   match String.split ~on:',' s with
   | [ e1; e2 ] -> (parse_range e1, parse_range e2)
-  | other -> failwith ""
+  | other -> failwith @@ "Expected pair, got " ^ String.concat ~sep:"  " other
 
 let fully_contains (((l1, h1), (l2, h2)) : pair) : bool =
   (l1 <= l2 && h1 >= h2) || (l2 <= l1 && h2 >= h1)
