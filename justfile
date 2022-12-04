@@ -19,12 +19,12 @@ fmt:
 
 alias t := test
 # Run specific test
-test DAY:
+test DAY: build
     #!/usr/bin/env sh
     dune build @day$(printf %02d {{DAY}})
 
 # Run all tests
-test-all:
+test-all: build
     dune runtest
 
 # Set up boilerplate for a new day (still need to add to bin/dune and test/dune :( )
