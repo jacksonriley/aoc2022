@@ -39,8 +39,6 @@ let compute_direction_visibility (trees : treemap) (d : direction) : treemap =
     | Up -> Array.transpose_exn result
     | Down -> Array.map result ~f:Array.rev |> Array.transpose_exn
   in
-  (* Stdio.print_endline @@ show_direction d;
-     Stdio.print_endline @@ show_treemap final; *)
   final
 
 let compute_visible (trees : treemap) (vs : treemap list) : bool mat =
