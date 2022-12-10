@@ -81,8 +81,6 @@ let rec compute_size (n : node) : int =
 
 let parsed = read_input_from_stdin |> parse_input
 
-(* let _ = compute_size (Directory parsed); *)
-
 let rec sum_smallish (n : node) : int =
   match n with
   | File _ -> 0
