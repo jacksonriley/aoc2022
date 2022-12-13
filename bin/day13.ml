@@ -60,23 +60,16 @@ let part1 (inp : (packet * packet) list) : int =
          match order l r with Right -> Some (i + 1) | _ -> None)
   |> List.fold ~init:0 ~f:( + )
 
+let find_sorted_index (packets : packet list) (div : string) : int =
+  let parsed = parse_line div in
+  packets
+  |> List.filter ~f:(fun p ->
+         match order p parsed with Right -> true | _ -> false)
+  |> List.length
+
 let part2 (inp : (packet * packet) list) : int =
-  let div1 = parse_line "[[2]]" in
-  let div2 = parse_line "[[6]]" in
-  let flat =
-    div1 :: div2 :: (inp |> List.map ~f:(fun (l, r) -> [ l; r ]) |> List.concat)
-  in
-  let sorted =
-    flat
-    |> List.sort ~compare:(fun p1 p2 ->
-           match order p1 p2 with Right -> -1 | NotRight -> 1 | Same -> 0)
-  in
-  sorted
-  |> List.foldi ~init:[] ~f:(fun i acc p ->
-         match (order p div1, order p div2) with
-         | Same, _ | _, Same -> (i + 1) :: acc
-         | _ -> acc)
-  |> List.fold ~init:1 ~f:( * )
+  let flat = inp |> List.map ~f:(fun (l, r) -> [ l; r ]) |> List.concat in
+  (find_sorted_index flat "[[2]]" + 1) * (find_sorted_index flat "[[6]]" + 2)
 
 let () =
   parsed |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline
