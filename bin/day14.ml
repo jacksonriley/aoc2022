@@ -1,17 +1,7 @@
 open Base
 open Aoc2022.Lib
 
-module Pos = struct
-  module T = struct
-    type t = int * int [@@deriving compare, sexp_of]
-  end
-
-  include T
-  include Comparator.Make (T)
-end
-
-type pos = Pos.t
-type lines = pos list
+type lines = (int * int) list
 type spot = Sand | Air | Rock
 type grid = spot array array
 
@@ -64,7 +54,7 @@ let parse_input (s : string) : grid =
    If the sand comes to rest somewhere below, return true.
    Otherwise, return false.
    *)
-let rec sand_comes_to_rest ((x, y) : pos) (g : grid) : bool =
+let rec sand_comes_to_rest ((x, y) : int * int) (g : grid) : bool =
   match g.(y).(x) with
   | Sand | Rock -> false
   | Air -> (
