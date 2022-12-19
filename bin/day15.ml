@@ -34,9 +34,7 @@ let merge_segments (segs : (int * int) list) : (int * int) list =
          match acc with
          | [] -> [ (l, u) ]
          | (l', u') :: tl ->
-             if l' > l then failwith "WTF"
-             else if u' >= l then (l', max u u') :: tl
-             else (l, u) :: (l', u') :: tl)
+             if u' >= l then (l', max u u') :: tl else (l, u) :: (l', u') :: tl)
 
 let overlaps ((l1, u1) : int * int) ((l2, u2) : int * int) : bool =
   not (l1 > u2 || l2 > u1)

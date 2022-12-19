@@ -14,7 +14,8 @@
   day12
   day13
   day14
-  day15)
+  day15
+  day16)
  (names
   day01
   day02
@@ -30,7 +31,8 @@
   day12
   day13
   day14
-  day15)
+  day15
+  day16)
  (libraries aoc2022 base str stdio)
  (preprocess
   (pps
@@ -39,4 +41,5 @@
    ppx_deriving.eq
    ppx_enumerate
    ppx_compare
-   ppx_sexp_conv)))
+   ppx_sexp_conv
+   ppx_hash)))
