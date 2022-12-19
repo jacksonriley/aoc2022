@@ -16,7 +16,24 @@ module StateKey = struct
   include Comparator.Make (T)
 end
 
+module StateKey2 = struct
+  module T = struct
+    type t = {
+      position : string;
+      time_remaining : int;
+      elephant_position : string;
+      elephant_time_remaining : int;
+      valves_on : string;
+    }
+    [@@deriving compare, sexp_of, hash]
+  end
+
+  include T
+  include Comparator.Make (T)
+end
+
 type state = (StateKey.t, int) Hashtbl.t
+type state2 = (StateKey2.t, int) Hashtbl.t
 
 let parse_neighbours (l : string) : string list =
   let rec go (current : string list) (toks : string list) : string list =
@@ -111,31 +128,121 @@ let rec calculate_best_flow (position : string) (time_remaining : int)
                  calculate_best_flow n (time_remaining - d) valves_on m s)
         in
         let max_children_off = maxlist children_off in
-        if Set.mem valves_on position then (
-          Hashtbl.set s ~key ~data:max_children_off;
-          max_children_off)
+        let result =
+          if Set.mem valves_on position then max_children_off
+          else
+            (* Turn on *)
+            let this_total_flow = cave.flow_rate * (time_remaining - 1) in
+            let valves_on' = Set.add valves_on position in
+            let children_on =
+              cave.neighbours |> Hashtbl.to_alist
+              |> List.map ~f:(fun (n, d) ->
+                     this_total_flow
+                     + calculate_best_flow n
+                         (time_remaining - 1 - d)
+                         valves_on' m s)
+            in
+            let max_children_on = maxlist children_on in
+            let max_on_off = max max_children_off max_children_on in
+            max_on_off
+        in
+        Hashtbl.set s ~key ~data:result;
+        result
+
+let rec calculate_best_flow2 (position : string) (time_remaining : int)
+    (elephant_position : string) (elephant_time_remaining : int)
+    (valves_on : string_set) (m : map) (s : state2) : int =
+  let key : StateKey2.t =
+    {
+      position;
+      time_remaining;
+      elephant_position;
+      elephant_time_remaining;
+      valves_on =
+        valves_on |> Set.to_list
+        |> List.sort ~compare:Poly.compare
+        |> String.concat;
+    }
+  in
+  match Hashtbl.find s key with
+  | Some x -> x
+  | None ->
+      let result =
+        if time_remaining <= 1 then 0
         else
-          (* Turn on *)
-          let this_total_flow = cave.flow_rate * (time_remaining - 1) in
-          let valves_on' = Set.add valves_on position in
-          let children_on =
+          let cave = Map.find_exn m position in
+          let children_off =
             cave.neighbours |> Hashtbl.to_alist
             |> List.map ~f:(fun (n, d) ->
-                   this_total_flow
-                   + calculate_best_flow n
-                       (time_remaining - 1 - d)
-                       valves_on' m s)
+                   calculate_best_flow2 n (time_remaining - d) elephant_position
+                     elephant_time_remaining valves_on m s)
           in
-          let max_children_on = maxlist children_on in
-          let max_on_off = max max_children_off max_children_on in
-          Hashtbl.set s ~key ~data:max_on_off;
-          max_on_off
+          let max_children_off = maxlist children_off in
+          if Set.mem valves_on position then max_children_off
+          else
+            (* Turn on *)
+            let this_total_flow = cave.flow_rate * (time_remaining - 1) in
+            let valves_on' = Set.add valves_on position in
+            let children_on =
+              cave.neighbours |> Hashtbl.to_alist
+              |> List.map ~f:(fun (n, d) ->
+                     this_total_flow
+                     + calculate_best_flow2 n
+                         (time_remaining - 1 - d)
+                         elephant_position elephant_time_remaining valves_on' m
+                         s)
+            in
+            let max_children_on = maxlist children_on in
+            max max_children_off max_children_on
+      in
 
-let part1 (m : map) : int =
+      let e_result =
+        if elephant_time_remaining <= 1 then 0
+        else
+          let e_cave = Map.find_exn m elephant_position in
+          let e_children_off =
+            e_cave.neighbours |> Hashtbl.to_alist
+            |> List.map ~f:(fun (n, d) ->
+                   calculate_best_flow2 position time_remaining n
+                     (elephant_time_remaining - d)
+                     valves_on m s)
+          in
+          let max_e_children_off = maxlist e_children_off in
+          if Set.mem valves_on elephant_position then max_e_children_off
+          else
+            (* Turn on *)
+            let e_this_total_flow =
+              e_cave.flow_rate * (elephant_time_remaining - 1)
+            in
+            let e_valves_on' = Set.add valves_on elephant_position in
+            let e_children_on =
+              e_cave.neighbours |> Hashtbl.to_alist
+              |> List.map ~f:(fun (n, d) ->
+                     e_this_total_flow
+                     + calculate_best_flow2 position time_remaining n
+                         (elephant_time_remaining - 1 - d)
+                         e_valves_on' m s)
+            in
+            let max_e_children_on = maxlist e_children_on in
+            max max_e_children_off max_e_children_on
+      in
+
+      let best_result = max result e_result in
+      Hashtbl.set s ~key ~data:best_result;
+      best_result
+
+(* let part1 (m : map) : int =
   let start_state = Hashtbl.create (module StateKey) in
-  calculate_best_flow "AA" 30 (Set.empty (module String)) m start_state
+  calculate_best_flow "AA" 30 (Set.empty (module String)) m start_state *)
+
+let part2 (m : map) : int =
+  let start_state = Hashtbl.create (module StateKey2) in
+  calculate_best_flow2 "AA" 26 "AA" 26 (Set.empty (module String)) m start_state
 
 let parsed : map = read_input_from_stdin |> parse_input
 
+(* let () =
+  parsed |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline *)
+
 let () =
-  parsed |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline
+  parsed |> part2 |> Int.to_string |> ( ^ ) "Part 2: " |> Stdio.print_endline
