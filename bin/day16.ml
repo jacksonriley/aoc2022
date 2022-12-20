@@ -1,17 +1,17 @@
 open Base
 open Aoc2022.Lib
 
-type cavecode = int
-type links = (cavecode, int) Hashtbl.t
-type cave = { name : cavecode; flow_rate : int; neighbours : links }
-type map = (cavecode, cave, Int.comparator_witness) Map.t
+type links = (string, int) Hashtbl.t
+type cave = { name : string; flow_rate : int; neighbours : links }
+type map = (string, cave, String.comparator_witness) Map.t
+type string_set = (string, String.comparator_witness) Set.t
 
 module StateKey = struct
   module T = struct
     type t = {
-      position : int;
+      position : string;
       time_remaining : int;
-      valves_on : int;
+      valves_on : string;
       remaining_players : int;
     }
     [@@deriving compare, sexp_of, hash]
@@ -23,36 +23,21 @@ end
 
 type state = (StateKey.t, int) Hashtbl.t
 
-let name_to_code = Hashtbl.create (module String)
-
-let maxlist (l : int list) : int =
-  l |> List.fold ~init:0 ~f:(fun acc x -> if x > acc then x else acc)
-
-let convert_name (name: string): int =
-  match Hashtbl.find name_to_code name with
-  Some x -> 1 lsl x
-  | None -> let curr_max = Hashtbl.data name_to_code |> maxlist in
-  let exponent = curr_max + 1 in
-  let code = 1 lsl exponent in
-  Hashtbl.set name_to_code ~key:name ~data:exponent;
-  code
-
-
-let parse_neighbours (l : string) : cavecode list =
-  let rec go (current : cavecode list) (toks : string list) : cavecode list =
+let parse_neighbours (l : string) : string list =
+  let rec go (current : string list) (toks : string list) : string list =
     match toks with
     | "valve" :: _ -> current
     | "valves" :: _ -> current
     | neighbour :: rest ->
         go
-          ((String.strip ~drop:(fun c -> phys_equal c ',') neighbour |> convert_name) :: current)
+          (String.strip ~drop:(fun c -> phys_equal c ',') neighbour :: current)
           rest
     | _ -> failwith ""
   in
   l |> String.split ~on:' ' |> List.rev |> go []
 
 let parse_cave (line : string) : cave =
-  let name = (line |> String.split ~on:' ' |> Array.of_list).(1) |> convert_name in
+  let name = (line |> String.split ~on:' ' |> Array.of_list).(1) in
   let flow_rate =
     (line |> String.split ~on:'=' |> Array.of_list).(1)
     |> String.split ~on:';' |> List.hd_exn |> Int.of_string
@@ -64,13 +49,16 @@ let parse_cave (line : string) : cave =
     neighbours =
       neighbours
       |> List.map ~f:(fun n -> (n, 1))
-      |> Hashtbl.of_alist_exn (module Int);
+      |> Hashtbl.of_alist_exn (module String);
   }
 
 let maxlist (l : int list) : int =
   l |> List.fold ~init:0 ~f:(fun acc x -> if x > acc then x else acc)
 
-(* Replace zero flow caves with longer links between caves *)
+(* Replace zero flow caves with longer links between caves
+   This doesn't actually fully work in the case of zero flow rate cycles but it
+   does make things better :shrug:
+*)
 let prune_map (m : map) : unit =
   let zero_flow_rate_caves =
     m |> Map.to_alist
@@ -101,25 +89,26 @@ let parse_input (s : string) : map =
   let m =
     parsed
     |> List.map ~f:(fun c -> (c.name, c))
-    |> Map.of_alist_exn (module Int)
+    |> Map.of_alist_exn (module String)
   in
   prune_map m;
   m
 
-let rec calculate_best_flow (position : cavecode) (time_remaining : int)
-    (valves_on : int) (m : map) (s : state) (remaining_players : int) :
+let rec calculate_best_flow (position : string) (time_remaining : int)
+    (valves_on : string_set) (m : map) (s : state) (remaining_players : int) :
     int =
-    let statelen = Hashtbl.length s in
-    if phys_equal 0 (statelen % 10000) then Stdio.print_endline @@ Int.to_string (Hashtbl.length s) else ();
   if time_remaining <= 1 then
-    if remaining_players > 0 then calculate_best_flow (convert_name "AA") 26 valves_on m s 0
+    if remaining_players > 0 then calculate_best_flow "AA" 26 valves_on m s 0
     else 0
   else
     let key : StateKey.t =
       {
         position;
         time_remaining;
-        valves_on;
+        valves_on =
+          valves_on |> Set.to_list
+          |> List.sort ~compare:Poly.compare
+          |> String.concat;
         remaining_players;
       }
     in
@@ -135,11 +124,12 @@ let rec calculate_best_flow (position : cavecode) (time_remaining : int)
         in
         let max_children_off = maxlist children_off in
         let result =
-          if (valves_on land position) > 0 then max_children_off
+          if Set.mem valves_on position || phys_equal cave.flow_rate 0 then
+            max_children_off
           else
             (* Turn on *)
             let this_total_flow = cave.flow_rate * (time_remaining - 1) in
-            let valves_on' = valves_on + position in
+            let valves_on' = Set.add valves_on position in
             let children_on =
               cave.neighbours |> Hashtbl.to_alist
               |> List.map ~f:(fun (n, d) ->
@@ -157,16 +147,16 @@ let rec calculate_best_flow (position : cavecode) (time_remaining : int)
 
 let part1 (m : map) : int =
   let start_state = Hashtbl.create (module StateKey) in
-  calculate_best_flow (convert_name "AA") 30 0 m start_state 0
+  calculate_best_flow "AA" 30 (Set.empty (module String)) m start_state 0
 
 let part2 (m : map) : int =
   let start_state = Hashtbl.create (module StateKey) in
-  calculate_best_flow (convert_name "AA") 26 0 m start_state 1
+  calculate_best_flow "AA" 26 (Set.empty (module String)) m start_state 1
 
 let parsed : map = read_input_from_stdin |> parse_input
 
-(* let () =
-  parsed |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline *)
+let () =
+  parsed |> part1 |> Int.to_string |> ( ^ ) "Part 1: " |> Stdio.print_endline
 
 let () =
   parsed |> part2 |> Int.to_string |> ( ^ ) "Part 2: " |> Stdio.print_endline
