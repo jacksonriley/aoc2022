@@ -1,29 +1,18 @@
 open Base
 open Aoc2022.Lib
 
-type links = (string, int) Hashtbl.t
-type cave = { name : string; flow_rate : int; neighbours : links }
-type map = (string, cave, String.comparator_witness) Map.t
-type string_set = (string, String.comparator_witness) Set.t
+type cavecode = int
+type links = (cavecode, int) Hashtbl.t
+type cave = { name : cavecode; flow_rate : int; neighbours : links }
+type map = (cavecode, cave, Int.comparator_witness) Map.t
 
 module StateKey = struct
   module T = struct
-    type t = { position : string; time_remaining : int; valves_on : string }
-    [@@deriving compare, sexp_of, hash]
-  end
-
-  include T
-  include Comparator.Make (T)
-end
-
-module StateKey2 = struct
-  module T = struct
     type t = {
-      position : string;
+      position : int;
       time_remaining : int;
-      elephant_position : string;
-      elephant_time_remaining : int;
-      valves_on : string;
+      valves_on : int;
+      remaining_players : int;
     }
     [@@deriving compare, sexp_of, hash]
   end
@@ -33,36 +22,49 @@ module StateKey2 = struct
 end
 
 type state = (StateKey.t, int) Hashtbl.t
-type state2 = (StateKey2.t, int) Hashtbl.t
 
-let parse_neighbours (l : string) : string list =
-  let rec go (current : string list) (toks : string list) : string list =
+let name_to_code = Hashtbl.create (module String)
+
+let maxlist (l : int list) : int =
+  l |> List.fold ~init:0 ~f:(fun acc x -> if x > acc then x else acc)
+
+let convert_name (name: string): int =
+  match Hashtbl.find name_to_code name with
+  Some x -> 1 lsl x
+  | None -> let curr_max = Hashtbl.data name_to_code |> maxlist in
+  let exponent = curr_max + 1 in
+  let code = 1 lsl exponent in
+  Hashtbl.set name_to_code ~key:name ~data:exponent;
+  code
+
+
+let parse_neighbours (l : string) : cavecode list =
+  let rec go (current : cavecode list) (toks : string list) : cavecode list =
     match toks with
     | "valve" :: _ -> current
     | "valves" :: _ -> current
     | neighbour :: rest ->
         go
-          (String.strip ~drop:(fun c -> phys_equal c ',') neighbour :: current)
+          ((String.strip ~drop:(fun c -> phys_equal c ',') neighbour |> convert_name) :: current)
           rest
     | _ -> failwith ""
   in
   l |> String.split ~on:' ' |> List.rev |> go []
 
 let parse_cave (line : string) : cave =
-  let name = (line |> String.split ~on:' ' |> Array.of_list).(1) in
+  let name = (line |> String.split ~on:' ' |> Array.of_list).(1) |> convert_name in
   let flow_rate =
     (line |> String.split ~on:'=' |> Array.of_list).(1)
     |> String.split ~on:';' |> List.hd_exn |> Int.of_string
   in
   let neighbours = parse_neighbours line in
-
   {
     name;
     flow_rate;
     neighbours =
       neighbours
       |> List.map ~f:(fun n -> (n, 1))
-      |> Hashtbl.of_alist_exn (module String);
+      |> Hashtbl.of_alist_exn (module Int);
   }
 
 let maxlist (l : int list) : int =
@@ -99,23 +101,26 @@ let parse_input (s : string) : map =
   let m =
     parsed
     |> List.map ~f:(fun c -> (c.name, c))
-    |> Map.of_alist_exn (module String)
+    |> Map.of_alist_exn (module Int)
   in
   prune_map m;
   m
 
-let rec calculate_best_flow (position : string) (time_remaining : int)
-    (valves_on : string_set) (m : map) (s : state) : int =
-  if time_remaining <= 1 then 0
+let rec calculate_best_flow (position : cavecode) (time_remaining : int)
+    (valves_on : int) (m : map) (s : state) (remaining_players : int) :
+    int =
+    let statelen = Hashtbl.length s in
+    if phys_equal 0 (statelen % 10000) then Stdio.print_endline @@ Int.to_string (Hashtbl.length s) else ();
+  if time_remaining <= 1 then
+    if remaining_players > 0 then calculate_best_flow (convert_name "AA") 26 valves_on m s 0
+    else 0
   else
     let key : StateKey.t =
       {
         position;
         time_remaining;
-        valves_on =
-          valves_on |> Set.to_list
-          |> List.sort ~compare:Poly.compare
-          |> String.concat;
+        valves_on;
+        remaining_players;
       }
     in
     match Hashtbl.find s key with
@@ -125,22 +130,23 @@ let rec calculate_best_flow (position : string) (time_remaining : int)
         let children_off =
           cave.neighbours |> Hashtbl.to_alist
           |> List.map ~f:(fun (n, d) ->
-                 calculate_best_flow n (time_remaining - d) valves_on m s)
+                 calculate_best_flow n (time_remaining - d) valves_on m s
+                   remaining_players)
         in
         let max_children_off = maxlist children_off in
         let result =
-          if Set.mem valves_on position then max_children_off
+          if (valves_on land position) > 0 then max_children_off
           else
             (* Turn on *)
             let this_total_flow = cave.flow_rate * (time_remaining - 1) in
-            let valves_on' = Set.add valves_on position in
+            let valves_on' = valves_on + position in
             let children_on =
               cave.neighbours |> Hashtbl.to_alist
               |> List.map ~f:(fun (n, d) ->
                      this_total_flow
                      + calculate_best_flow n
                          (time_remaining - 1 - d)
-                         valves_on' m s)
+                         valves_on' m s remaining_players)
             in
             let max_children_on = maxlist children_on in
             let max_on_off = max max_children_off max_children_on in
@@ -149,95 +155,13 @@ let rec calculate_best_flow (position : string) (time_remaining : int)
         Hashtbl.set s ~key ~data:result;
         result
 
-let rec calculate_best_flow2 (position : string) (time_remaining : int)
-    (elephant_position : string) (elephant_time_remaining : int)
-    (valves_on : string_set) (m : map) (s : state2) : int =
-  let key : StateKey2.t =
-    {
-      position;
-      time_remaining;
-      elephant_position;
-      elephant_time_remaining;
-      valves_on =
-        valves_on |> Set.to_list
-        |> List.sort ~compare:Poly.compare
-        |> String.concat;
-    }
-  in
-  match Hashtbl.find s key with
-  | Some x -> x
-  | None ->
-      let result =
-        if time_remaining <= 1 then 0
-        else
-          let cave = Map.find_exn m position in
-          let children_off =
-            cave.neighbours |> Hashtbl.to_alist
-            |> List.map ~f:(fun (n, d) ->
-                   calculate_best_flow2 n (time_remaining - d) elephant_position
-                     elephant_time_remaining valves_on m s)
-          in
-          let max_children_off = maxlist children_off in
-          if Set.mem valves_on position then max_children_off
-          else
-            (* Turn on *)
-            let this_total_flow = cave.flow_rate * (time_remaining - 1) in
-            let valves_on' = Set.add valves_on position in
-            let children_on =
-              cave.neighbours |> Hashtbl.to_alist
-              |> List.map ~f:(fun (n, d) ->
-                     this_total_flow
-                     + calculate_best_flow2 n
-                         (time_remaining - 1 - d)
-                         elephant_position elephant_time_remaining valves_on' m
-                         s)
-            in
-            let max_children_on = maxlist children_on in
-            max max_children_off max_children_on
-      in
-
-      let e_result =
-        if elephant_time_remaining <= 1 then 0
-        else
-          let e_cave = Map.find_exn m elephant_position in
-          let e_children_off =
-            e_cave.neighbours |> Hashtbl.to_alist
-            |> List.map ~f:(fun (n, d) ->
-                   calculate_best_flow2 position time_remaining n
-                     (elephant_time_remaining - d)
-                     valves_on m s)
-          in
-          let max_e_children_off = maxlist e_children_off in
-          if Set.mem valves_on elephant_position then max_e_children_off
-          else
-            (* Turn on *)
-            let e_this_total_flow =
-              e_cave.flow_rate * (elephant_time_remaining - 1)
-            in
-            let e_valves_on' = Set.add valves_on elephant_position in
-            let e_children_on =
-              e_cave.neighbours |> Hashtbl.to_alist
-              |> List.map ~f:(fun (n, d) ->
-                     e_this_total_flow
-                     + calculate_best_flow2 position time_remaining n
-                         (elephant_time_remaining - 1 - d)
-                         e_valves_on' m s)
-            in
-            let max_e_children_on = maxlist e_children_on in
-            max max_e_children_off max_e_children_on
-      in
-
-      let best_result = max result e_result in
-      Hashtbl.set s ~key ~data:best_result;
-      best_result
-
-(* let part1 (m : map) : int =
+let part1 (m : map) : int =
   let start_state = Hashtbl.create (module StateKey) in
-  calculate_best_flow "AA" 30 (Set.empty (module String)) m start_state *)
+  calculate_best_flow (convert_name "AA") 30 0 m start_state 0
 
 let part2 (m : map) : int =
-  let start_state = Hashtbl.create (module StateKey2) in
-  calculate_best_flow2 "AA" 26 "AA" 26 (Set.empty (module String)) m start_state
+  let start_state = Hashtbl.create (module StateKey) in
+  calculate_best_flow (convert_name "AA") 26 0 m start_state 1
 
 let parsed : map = read_input_from_stdin |> parse_input
 
