@@ -17,7 +17,8 @@
   day15
   day16
   day17
-  day18)
+  day18
+  day19)
  (names
   day01
   day02
@@ -36,7 +37,8 @@
   day15
   day16
   day17
-  day18)
+  day18
+  day19)
  (libraries aoc2022 base str stdio)
  (preprocess
   (pps
