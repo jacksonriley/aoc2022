@@ -79,9 +79,7 @@ let do_step (m : map) (dir_order : dir list) : map =
                  (* Duplicate - neither should move! This can only happen
                     head-on, so no need to worry about further duplicates *)
                  Hashtbl.remove potential_moves new_pos
-             | None -> (
-              Hashtbl.set potential_moves ~key:new_pos ~data:(r, c))
-              ));
+             | None -> Hashtbl.set potential_moves ~key:new_pos ~data:(r, c)));
   let resolved_moves =
     potential_moves |> Hashtbl.to_alist
     |> List.map ~f:(fun (to_pos, from_pos) -> (from_pos, to_pos))
@@ -99,17 +97,19 @@ let extreme (f : int -> int -> bool) (xs : int list) : int =
   | Some x -> x
   | None -> failwith "empty list!"
 
-let do_n_steps (m : map) (n : int option) : map * int=
+let do_n_steps (m : map) (n : int option) : map * int =
   let rec go m' dir_order step_no =
     let new_m = do_step m' dir_order in
-      let new_dir_order = List.tl_exn dir_order @ [ List.hd_exn dir_order ] in
-      match n with
-      | Some limit -> if phys_equal (step_no + 1) limit then (new_m, step_no + 1)
-      else
-      go new_m new_dir_order (step_no + 1)
-      | None -> if Set.equal m' new_m then (new_m, step_no + 1) else go new_m new_dir_order (step_no + 1)
+    let new_dir_order = List.tl_exn dir_order @ [ List.hd_exn dir_order ] in
+    match n with
+    | Some limit ->
+        if phys_equal (step_no + 1) limit then (new_m, step_no + 1)
+        else go new_m new_dir_order (step_no + 1)
+    | None ->
+        if Set.equal m' new_m then (new_m, step_no + 1)
+        else go new_m new_dir_order (step_no + 1)
+  in
 
-    in
   let start_dir_order = [ North; South; West; East ] in
   go m start_dir_order 0
 
@@ -124,11 +124,11 @@ let count_empty_squares (m : map) : int =
   total_area - Set.length m
 
 let part1 (inp : map) : int =
-  let (final_map, _) = do_n_steps inp (Some 10) in
+  let final_map, _ = do_n_steps inp (Some 10) in
   count_empty_squares final_map
 
 let part2 (inp : map) : int =
-  let (_, num_steps) = do_n_steps inp None in
+  let _, num_steps = do_n_steps inp None in
   num_steps
 
 let parsed = read_input_from_stdin |> parse_input
