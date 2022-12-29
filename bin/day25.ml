@@ -4,9 +4,7 @@ open Aoc2022.Lib
 let int_of_snafu (snafu : string) : int =
   let rec go bits multiplier so_far =
     match bits with
-    | [] ->
-        Printf.sprintf "%s is %d" snafu so_far |> Stdio.print_endline;
-        so_far
+    | [] -> so_far
     | hd :: tl ->
         let bit =
           match hd with
@@ -22,31 +20,24 @@ let int_of_snafu (snafu : string) : int =
   go (snafu |> String.to_list_rev) 1 0
 
 let int_to_snafu (num : int) : string =
-  let rec go position so_far =
-    if (5 ** position) / 2 >= num then so_far
+  let rec go current so_far =
+    if phys_equal current 0 then so_far
     else
+      let d = (current + 2) / 5 in
+      let m = (current + 2) % 5 in
       let bit =
-        match
-          ((num % (5 ** (position + 1))) + ((5 ** position) / 2))
-          / (5 ** position)
-        with
-        | 0 -> '0'
-        | 1 -> '1'
-        | 2 -> '2'
-        | 3 -> '='
-        | 4 -> '-'
-        | 5 -> '0'
-        | bad ->
-            failwith
-            @@ Printf.sprintf
-                 "Unreachable: %d with position: %d, num: %d, so_far: %s" bad
-                 position num
-                 (String.of_char_list so_far)
+        match m with
+        | 0 -> '='
+        | 1 -> '-'
+        | 2 -> '0'
+        | 3 -> '1'
+        | 4 -> '2'
+        | _ -> failwith "Unreachable"
       in
 
-      go (position + 1) (bit :: so_far)
+      go d (bit :: so_far)
   in
-  go 0 [] |> String.of_char_list
+  go num [] |> String.of_char_list
 
 let part1 (inp : string list) : string =
   inp |> List.map ~f:int_of_snafu |> List.reduce_exn ~f:( + ) |> int_to_snafu
